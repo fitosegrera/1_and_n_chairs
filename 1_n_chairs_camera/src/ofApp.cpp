@@ -9,19 +9,27 @@ void ofApp::setup(){
     if( XML.load("config.xml") ){
 		cout<< "config.xml loaded!"<< endl;
 		timeLimit = XML.getValue<int>("cycleTimeLimit");
+		initPosX = XML.getValue<int>("initPosX");
 		panLeftMax = XML.getValue<int>("panLeftMax");
 		panRightMax = XML.getValue<int>("panRightMax");
 		panTopMax = XML.getValue<int>("panTopMax");
 		panBotMax = XML.getValue<int>("panBotMax");
 		zMax = XML.getValue<float>("zoomMax");
+		zMin = XML.getValue<float>("zoomMin");
 		port = XML.getValue<int>("port");
 		fontSize = XML.getValue<int>("fontSize");
 		camWidth = XML.getValue<int>("camWidth");
 		camHeight = XML.getValue<int>("camHeight");
 		isFullScreen = XML.getValue<int>("fullScreen");
+		usingAPI = XML.getValue<int>("usingAPI");
 	}
 
-	ofSetWindowShape(camWidth, camHeight);
+	//Set window shape
+    if(isFullScreen == 1){
+    	ofSetFullscreen(true);
+    }else{
+    	ofSetWindowShape(camWidth, camHeight);
+    }
 
 	//WEBSOCKETS CONFIG
 	ofxLibwebsockets::ServerOptions options = ofxLibwebsockets::defaultServerOptions();
@@ -45,14 +53,15 @@ void ofApp::setup(){
     video.setDesiredFrameRate(60);
     video.initGrabber(camWidth, camHeight);
 
-    zoom = 1.0;
-    maxZoom = 1.0;
+    zoom = zMin;
+    maxZoom = zMax;
     startPanZoom = false;
     zooming = false;
     zoomSpeed = 0.01;
     panX = false;
     panY = false;
     panSpeed = 1;
+    posX = camWidth/2 - initPosX;
 
     captureFrame = false;
 
@@ -67,6 +76,16 @@ void ofApp::setup(){
     font.load("verdana.ttf", fontSize, true, true);
 
     isCycleCounting = true;
+    
+    shuttingDown = false;
+    
+    ofHideCursor();
+    
+    cout<< "Initial X POS: "<< ofToString(camWidth/2 + posX)<< endl;
+	cout<< "Initial Y POS: "<< ofToString(camHeight/2 + posY)<< endl;
+	cout<< "Minim Left Margin: "<< ofToString(-camWidth/2 + panLeftMax)<< endl;
+	cout<< "Minim Right Margin: "<< ofToString(camWidth/2 - panRightMax)<< endl;
+    
 }
 
 //--------------------------------------------------------------
@@ -80,7 +99,7 @@ void ofApp::setupCycle(){
 	maxPosY = ofRandom(-camHeight/2 + panTopMax, camHeight/2 - panBotMax);
 	server.send("$reset;");
 }
-
+	
 //--------------------------------------------------------------
 void ofApp::panZoomCamera(){
 	if(zooming){
@@ -129,12 +148,17 @@ void ofApp::panZoomCamera(){
 		startPanZoom = false;
 		captureFrame = true;
 	}
+	
+	//cout<< "Current X POS: "<< ofToString(camWidth/2 + posX)<< endl;
+	//cout<< "Current Y POS: "<< ofToString(camHeight/2 + posY)<< endl;
+	//cout<< "Current Left Margin: "<< ofToString(-camWidth/2 + panLeftMax)<< endl;
+	//cout<< "Current Right Margin: "<< ofToString(camWidth/2 - panRightMax)<< endl;
 
 }
 
 //--------------------------------------------------------------
 string ofApp::getCaption(const char* cmd){
-    cout<< "Requesting data from captionbot.ai"<< endl;
+    cout<< "Requesting data..."<< endl;
     char buffer[128];
     std::string result = "";
     FILE* pipe = popen(cmd, "r");
@@ -158,7 +182,7 @@ void ofApp::update(){
 	if(isImageConnected && isTextConnected){
 		//RUN SYSTEM
 		video.update();
-
+			
 		if(isImageReady && isTextReady){
 			server.send("$display;");
 			isCycleCounting = true;
@@ -174,22 +198,41 @@ void ofApp::update(){
 		if(captureFrame){	
 			ofSaveScreen("frame.png");
 			captureFrame = false;
-			string result = getCaption("python data/captionbot.py data/frame.png");
-			while (result == ""){
-				cout<< "\nRetrying..."<< endl;
+			string result = "";
+			
+			if(usingAPI == 0){
 				result = getCaption("python data/captionbot.py data/frame.png");
+				while (result == ""){
+					cout<< "\nRetrying..."<< endl;
+					result = getCaption("python data/captionbot.py data/frame.png");
+				}
+			}else if(usingAPI == 1){
+				result = getCaption("python data/caption_API.py");
 			}
-	        cout<< "RESULT: " + result<< endl;
-	        server.send(result);
+			
+			server.send("$load;");
+			cout<< "RESULT: " + result<< endl;
+			server.send(result);
+			
+			cout<< "Final X POS: "<< ofToString(camWidth/2 + posX)<< endl;
+			cout<< "Final Y POS: "<< ofToString(camHeight/2 + posY)<< endl;
+			cout<< "Final Left Margin: "<< ofToString(-camWidth/2 + panLeftMax)<< endl;
+			cout<< "Final Right Margin: "<< ofToString(camWidth/2 - panRightMax)<< endl;
 		}
 
 		if(isCycleCounting){
 			uint64_t now = ofGetElapsedTimeMillis();
-	        if (now - startTime > timeLimit) {
-	        	isCycleCounting = false;
-	        	setupCycle();
-	            startTime = ofGetElapsedTimeMillis();
-	        }
+			if (now - startTime > timeLimit) {
+				isCycleCounting = false;
+				setupCycle();
+				startTime = ofGetElapsedTimeMillis();
+			}
+		}
+		
+		if(shuttingDown){
+	        shuttingDown = false;
+	        server.send("$shutdown;");
+	        system("sudo shutdown -h now");
 		}
 	}
 }
@@ -202,17 +245,17 @@ void ofApp::draw(){
 	if(isImageConnected && isTextConnected){
 		//RUN SYSTEM
 		ofPushMatrix();
-		    //move "transformation point" from top left corner to centre
-		    //by translating by half the frame size
-		    ofTranslate(camWidth/2 + posX, camHeight/2 + posY);
-		    //scale from centre
-		    ofScale(zoom, zoom);
-		    //move coordinate system back to top left, and draw the video
-		    video.draw(-camWidth/2 - posX, -camHeight/2 - posY);
+			//move "transformation point" from top left corner to centre
+			//by translating by half the frame size
+			ofTranslate(camWidth/2 + posX, camHeight/2 + posY);
+			//scale from centre
+			ofScale(zoom, zoom);
+			//move coordinate system back to top left, and draw the video
+			video.draw(-camWidth/2 - posX, -camHeight/2 - posY);
 	  	ofPopMatrix(); 
 	}else{
 		string initMessage = "Waiting for Clients...";
-		font.drawString(initMessage, 20, 40);
+		font.drawString(initMessage, 200, 200);
 	}
 }
 
@@ -223,7 +266,7 @@ void ofApp::keyPressed(int key){
 
 //--------------------------------------------------------------
 void ofApp::keyReleased(int key){
-	// setupCycle();
+
 }
 
 //--------------------------------------------------------------
@@ -235,11 +278,6 @@ void ofApp::onConnect( ofxLibwebsockets::Event& args ){
 void ofApp::onOpen( ofxLibwebsockets::Event& args ){
     cout<<"new connection open"<<endl;
     cout<<args.conn.getClientIP()<< endl;
-
-    //Set window shape
-    if(isFullScreen == 1){
-    	ofSetFullscreen(true);
-    }
 }
 
 //--------------------------------------------------------------
@@ -249,12 +287,14 @@ void ofApp::onClose( ofxLibwebsockets::Event& args ){
     
     string ip = args.conn.getClientIP();
     
-    if(ip == "192.168.1.110"){
+    if(ip == "192.168.1.130"){
     	isImageConnected = false;
+    	cout<< "Image Disconnected"<< endl;
     }
 
     if(ip == "192.168.1.120"){
     	isTextConnected = false;
+    	cout<< "Text Disconnected"<< endl;
     }
 }
 
@@ -277,6 +317,8 @@ void ofApp::onMessage( ofxLibwebsockets::Event& args ){
     	isImageReady = true;
     }else if(args.message == "$text;ready"){
     	isTextReady = true;
+    }else if(args.message == "$shutdown;"){
+    	shuttingDown = true;
     }
 }
 

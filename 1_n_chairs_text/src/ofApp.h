@@ -49,5 +49,8 @@ class ofApp : public ofBaseApp{
 
         int isFullScreen;
         int w, h;
+        
+        ofImage loader;
+        bool loading;
 		
 };

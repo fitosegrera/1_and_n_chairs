@@ -1,7 +1,8 @@
 <CONFIG>
-	<fullScreen>1</fullScreen>
+	<fullScreen>0</fullScreen>
 	<address>192.168.1.110</address>
 	<port>9099</port>
 	<width>1280</width>
 	<height>720</height>
+	<useAPI>1</useAPI>
 </CONFIG>

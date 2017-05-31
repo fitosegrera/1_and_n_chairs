@@ -31,6 +31,11 @@ void ofApp::setup(){
 	ofTrueTypeFont::setGlobalDpi(72);
     font.load("verdana.ttf", fontSize, true, true);
 	inputMessage = "";
+	
+	loader.load("loader.png");
+	loading = false;
+	
+	ofHideCursor();
 }
 
 //--------------------------------------------------------------
@@ -42,12 +47,13 @@ string ofApp::makeTextBox(string s){
     for(int i=0; i<arrLength; i++){
         ofRectangle r = font.getStringBoundingBox(singleLine, 0, 0);
         if(r.width > ofGetScreenWidth()-marginX){
-            singleLine += ofSplitString(s, " ")[i] + " \n";
+            string word = ofSplitString(s, " ")[i];
+            singleLine += word + " \n";
             lines += singleLine;
             singleLine = "";
         }else{
             if(i == arrLength-1){
-                lines = lines + singleLine + ofSplitString(s, " ")[i] + ".";
+                lines = lines + singleLine + ofSplitString(s, " ")[i];
             }else{
                 singleLine += ofSplitString(s, " ")[i] + " ";
             }
@@ -69,7 +75,7 @@ void ofApp::update(){
         if (now - lastReconnectTime > 5000) {
             cout<< "Reconnecting..."<< endl;
             client.close();
-            client.connect("127.0.0.1", 9091); 
+            client.connect(address, port); 
             lastReconnectTime = ofGetElapsedTimeMillis();
         }
     }
@@ -77,12 +83,26 @@ void ofApp::update(){
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-	if(drawText){
-		ofBackground(255);
-		ofSetColor(0);
-        font.drawStringCentered(makeTextBox(inputMessage), ofGetWidth()/2, ofGetHeight()/2);
-	}else{
-		ofBackground(0);
+	ofBackground(0);
+	if(client.isConnected()){
+		if(drawText){
+			ofBackground(255);
+			ofSetColor(0);
+			font.drawStringCentered(makeTextBox(inputMessage), ofGetWidth()/2, ofGetHeight()/2);
+		}else{
+			ofBackground(0);
+			if(loading){	
+				ofSetColor(255);
+				ofPushMatrix();
+					ofTranslate(ofGetWidth()/2 - 16, ofGetHeight()/2 - 16);
+					ofPushMatrix();
+						ofTranslate(32, 32);
+						ofRotate(ofGetFrameNum() * 5);
+						loader.draw(-16,-16);
+					ofPopMatrix();
+				ofPopMatrix();
+			}
+		}
 	}
 }
 
@@ -122,8 +142,13 @@ void ofApp::onMessage( ofxLibwebsockets::Event& args ){
     //cout<<"got message "<<args.message<<endl;
     if(args.message == "$reset;"){
     	drawText = false;
+    }else if(args.message == "$load;"){
+        loading = true;
     }else if(args.message == "$display;"){
         drawText = true;
+        loading = false;
+    }else if(args.message == "$shutdown;"){
+        system("sudo shutdown -h now");
     }else{
     	inputMessage = args.message;
     	messageArrived = true;

@@ -6,17 +6,18 @@ var Jimp = require('jimp');
 var exec = require('child_process').exec;
 
 var q = process.argv[2];
+var max = 100;
 
 function makeImgRequest(quer) {
     console.log("QUERY: " + quer);
     bing.list({
             keyword: quer,
-            num: 10,
+            num: max,
             detail: true
         })
         .then(function(res) {
             // console.log('first 10 results from bing', res);
-            var index = Math.floor(Math.random() * 10);
+            var index = Math.floor(Math.random() * max);
             console.log("-----------------");
             console.log(res[index]);
             console.log("-----------------");

@@ -1,13 +1,16 @@
 <CONFIG>
 	<panTopMax>0</panTopMax>
 	<panBotMax>0</panBotMax>
-	<panRightMax>0</panRightMax>
-	<panLeftMax>0</panLeftMax>
-	<zoomMax>10.0</zoomMax>
-	<cycleTimeLimit>35000</cycleTimeLimit>
-	<port>9091</port>
-	<fontSize>20</fontSize>
+	<panRightMax>500</panRightMax>
+	<panLeftMax>500</panLeftMax>
+	<initPosX>0</initPosX>
+	<zoomMin>1.25</zoomMin>
+	<zoomMax>12.0</zoomMax>
+	<cycleTimeLimit>45000</cycleTimeLimit>
+	<port>9099</port>
+	<fontSize>40</fontSize>
 	<fullScreen>1</fullScreen>
 	<camWidth>1280</camWidth>
 	<camHeight>720</camHeight>
+	<usingAPI>0</usingAPI>
 </CONFIG>

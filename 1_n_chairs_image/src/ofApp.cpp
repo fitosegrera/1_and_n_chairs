@@ -11,6 +11,7 @@ void ofApp::setup(){
         isFullScreen = XML.getValue<int>("fullScreen");
         w = XML.getValue<int>("width");
         h = XML.getValue<int>("height");
+        useAPI = XML.getValue<int>("useAPI");
     }
 
     ofSetWindowShape(w, h);
@@ -25,6 +26,11 @@ void ofApp::setup(){
 
 	drawImage = false;
 	loadImage = false;
+	
+	loader.load("loader.png");
+	loading = false;
+	
+	ofHideCursor();
 }
 
 //--------------------------------------------------------------
@@ -50,14 +56,41 @@ string ofApp::getImageURL(const char* cmd){
 
 //--------------------------------------------------------------
 void ofApp::transformImage(){
-    // if(image.getWidth()>image.getHeight()){
-    //     cout<< "WIDTH is bigger"<< endl;
-    //     image.resize(ofGetHeight(), ofGetWidth());
-    // }else{
-    //     cout<< "HEIGHT is bigger"<< endl;
-    //     image.resize(ofGetHeight(), ofGetWidth());
-    // }
-    image.resize(ofGetHeight(), ofGetWidth());
+    
+    float maxWidth = ofGetHeight();
+    float maxHeight = ofGetWidth();
+    float ratio = 0;
+    float width = image.getWidth();
+    float height = image.getHeight();
+    
+    cout<< "MAX H: "<< ofToString(maxHeight)<< endl;
+	cout<< "MAX W: "<< ofToString(maxWidth)<< endl;
+	cout<< "IMG Height: "<< ofToString(height)<< endl;
+	cout<< "IMG Width: "<< ofToString(width)<< endl;
+		
+    if(width>height){
+		cout<< "Horizontal image!"<< endl;
+		width = width / height * maxHeight ;
+		height = maxHeight;
+	}
+	
+	else if(height>width){
+		cout<< "Vertical image!"<< endl;
+		width = maxWidth ;
+		height = height / width * maxWidth;
+	}
+	
+	else if(height==width){
+		cout<< "Square image!"<< endl;
+		width = width / height * maxHeight ;
+		height = maxHeight;
+	}
+	
+	cout<< "rescaled Height: "<< ofToString(height)<< endl;
+	cout<< "rescaled Width: "<< ofToString(width)<< endl;
+		
+    //image.resize(ofGetHeight(), ofGetWidth());
+    image.resize(width, height);
     image.rotate90(3);
 }
 
@@ -66,16 +99,16 @@ void ofApp::update(){
     if(client.isConnected()){
     	if(loadImage){
     		image.load("data/image.jpg");
-            transformImage();
+            	transformImage();
     		loadImage = false;
-            client.send("$image;ready");
+            	client.send("$image;ready");
     	}
     }else{
         uint64_t now = ofGetElapsedTimeMillis();
         if (now - lastReconnectTime > 5000) {
             cout<< "Reconnecting..."<< endl;
             client.close();
-            client.connect("127.0.0.1", 9091); 
+            client.connect(address, port); 
             lastReconnectTime = ofGetElapsedTimeMillis();
         }
     }
@@ -88,9 +121,22 @@ void ofApp::draw(){
     	// ofSetColor(255);
     	if(drawImage){
             if(image.isAllocated()){
-                image.draw(0,0);
+				image.draw(-(image.getWidth()-ofGetWidth())/2,-(image.getHeight()-ofGetHeight())/2);
+				//image.draw(0,0);
             }
-    	}
+    	}else{ 
+			if(loading){
+				//cout<< loading<< endl;
+				ofPushMatrix();
+				ofTranslate(ofGetWidth()/2-16, ofGetHeight()/2-16);
+					ofPushMatrix();
+					ofTranslate(32,32);
+					ofRotate(ofGetFrameNum() * 5);
+					loader.draw(-16,-16);
+					ofPopMatrix();
+				ofPopMatrix();
+			}
+		}
     }
 }
 
@@ -141,12 +187,21 @@ void ofApp::onMessage( ofxLibwebsockets::Event& args ){
 
     if(args.message == "$reset;"){
     	drawImage = false;
+    }else if(args.message == "$load;"){
+        loading = true;
     }else if(args.message == "$display;"){
         drawImage = true;
+        loading = false;
+    }else if(args.message == "$shutdown;"){
+        system("sudo shutdown -h now");
     }else{
-    	//cout<< ("python data/get_image.py " + args.message).c_str()<< endl;
-    	string url = getImageURL(("node data/app.js " + allTogether).c_str());
-    	//cout<< "URL: " + url<< endl;
+		string url = "";
+    	if(useAPI==1){
+			url = getImageURL(("python data/app.py " + allTogether).c_str());
+		}else if(useAPI == 0){
+			url = getImageURL(("node data/app.js " + allTogether).c_str());
+		}
+    	cout<< "URL: " + url<< endl;
     	loadImage = true;
     }
 }

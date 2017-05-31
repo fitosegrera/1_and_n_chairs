@@ -34,8 +34,8 @@ class ofApp : public ofBaseApp{
 		ofVideoGrabber video;
 		int camWidth, camHeight;
 		float zoom, maxZoom;
-		float zMax;
-		float posX, posY, maxPosX, maxPosY;
+		float zMax, zMin;
+		float posX, posY, maxPosX, maxPosY, initPosX;
 		int panRightMax, panLeftMax, panTopMax, panBotMax;
 		float panSpeed, zoomSpeed;
 
@@ -65,5 +65,9 @@ class ofApp : public ofBaseApp{
         bool isCycleCounting;
 
         ofXml XML; //config file
+        
+        bool shuttingDown;
+        
+        int usingAPI;
 
 };

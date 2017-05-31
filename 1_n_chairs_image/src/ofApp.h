@@ -44,4 +44,9 @@ class ofApp : public ofBaseApp{
 		ofXml XML; //config file
         
         int isFullScreen;
+        
+        ofImage loader;
+        bool loading;
+        
+        int useAPI;
 };
