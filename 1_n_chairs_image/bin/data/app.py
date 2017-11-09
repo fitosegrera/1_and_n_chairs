@@ -17,7 +17,7 @@ print qry
 
 headers2 = {
     # Request headers
-    'Ocp-Apim-Subscription-Key': '87a92e2aca3243cc8ecd03e8a64fe6a5',
+    'Ocp-Apim-Subscription-Key': 'YOUR-KEY-HERE',
 }
 
 params = urllib.urlencode({
